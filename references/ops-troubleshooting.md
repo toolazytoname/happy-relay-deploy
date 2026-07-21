@@ -55,6 +55,7 @@ export async function allocateSessionSeqBatch(sessionId: string, count: number, 
 | npm 全局安装后 claude 命令失效/空壳 | 安装中断留残目录,重装报 EEXIST/ENOTEMPTY 静默失败 → `rm -rf` 包目录后 `npm i -g --force` 重装,装完必须 `claude --version` 验证,别信 exit code |
 | 迁移用户后手机发消息无回复（无报错） | 每个项目目录首次启动 claude 会弹「信任此目录」确认框,会话卡在框上静默等待,tmux 窗格可见。每个窗格确认一次即永久记录（`~/.claude.json`）,之后不再出现 |
 | 迁移 `.happy` 后中继全站 500（readonly database） | 中继数据 `/root/.happy/server-light` 被一并搬走,SQLite 无法写日志文件。中继数据必须留在 root（见下） |
+| tmux 里启动的会话,手机发消息无回复（日志只有 RPC 探测） | 会话处于本地（local）模式,手机只读。启动加 `--happy-starting-mode remote`（如 `happy --model k3 --happy-starting-mode remote`）手机才能直接控制；终端随时按空格切回本地 |
 
 ## 普通用户运行 claude（强烈建议）
 
