@@ -53,6 +53,8 @@ export async function allocateSessionSeqBatch(sessionId: string, count: number, 
 | Auth conflict: Both a token and an API key are set | `.bashrc` 等 rc 文件残留旧 `ANTHROPIC_API_KEY`,与 `ANTHROPIC_AUTH_TOKEN` 冲突 → 删除或 `unset` 其一 |
 | 同是 claude 行为不一致（有的会话正常有的报错） | 双版本共存：native 安装（`~/.local/share/claude`）与 npm 全局并存,新旧版本行为不同（root 检查为新版新增）。`which claude` 确认解析路径,只保留一个 |
 | npm 全局安装后 claude 命令失效/空壳 | 安装中断留残目录,重装报 EEXIST/ENOTEMPTY 静默失败 → `rm -rf` 包目录后 `npm i -g --force` 重装,装完必须 `claude --version` 验证,别信 exit code |
+| 迁移用户后手机发消息无回复（无报错） | 每个项目目录首次启动 claude 会弹「信任此目录」确认框,会话卡在框上静默等待,tmux 窗格可见。每个窗格确认一次即永久记录（`~/.claude.json`）,之后不再出现 |
+| 迁移 `.happy` 后中继全站 500（readonly database） | 中继数据 `/root/.happy/server-light` 被一并搬走,SQLite 无法写日志文件。中继数据必须留在 root（见下） |
 
 ## 普通用户运行 claude（强烈建议）
 
