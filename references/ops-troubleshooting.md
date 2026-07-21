@@ -47,6 +47,27 @@ export async function allocateSessionSeqBatch(sessionId: string, count: number, 
 | TLS handshake internal error | 测试方法错误：SNI 必须是站点域名。正确测法 `curl https://域名:端口/health --resolve 域名:端口:127.0.0.1` |
 | Caddyfile 改了不生效 | `admin off` 时 reload API 不可用,必须 `docker restart caddy` |
 | 语音不可用 | App 写死官方 ElevenLabs agent ID,自建服务不可用（slopus/happy#472),忽略 |
+| 手机创建会话报 Process exited unexpectedly（daemon 路径） | 先查 `~/.happy/logs/*daemon*.log`。两大高频原因：① daemon 由 systemd 裸启动,不加载 `.bashrc`,拉起的 claude 无 API 凭证闪退 → `ExecStart=/bin/bash -lc "/opt/node/bin/happy daemon start"`；② root + bypassPermissions 被新版 claude 拒绝（`--dangerously-skip-permissions cannot be used with root`）→ 用普通用户跑（见下「普通用户运行」）,临时可 `export IS_SANDBOX=1` |
+| tmux 里 happy 反复刷 Continuing Claude session | 同上 root 检查,进程陷入崩溃重试循环。修复前启动的旧进程不会自动获得新环境变量,必须 `source ~/.bashrc` 后重启 happy |
+| 修复后旧会话仍报 Process exited unexpectedly | 修复前创建的会话是"尸体",终态不可逆,App 里归档删除,认准修复后新建的会话 |
+| Auth conflict: Both a token and an API key are set | `.bashrc` 等 rc 文件残留旧 `ANTHROPIC_API_KEY`,与 `ANTHROPIC_AUTH_TOKEN` 冲突 → 删除或 `unset` 其一 |
+| 同是 claude 行为不一致（有的会话正常有的报错） | 双版本共存：native 安装（`~/.local/share/claude`）与 npm 全局并存,新旧版本行为不同（root 检查为新版新增）。`which claude` 确认解析路径,只保留一个 |
+| npm 全局安装后 claude 命令失效/空壳 | 安装中断留残目录,重装报 EEXIST/ENOTEMPTY 静默失败 → `rm -rf` 包目录后 `npm i -g --force` 重装,装完必须 `claude --version` 验证,别信 exit code |
+
+## 普通用户运行 claude（强烈建议）
+
+Happy 默认 bypassPermissions 模式,叠加 root 等于"任意命令免确认 + 最高权限"。建议建 `dev` 用户专跑 claude：
+
+```bash
+useradd -m -s /bin/bash dev
+mv /root/.happy /root/.claude /root/.claude.json /root/claude-app /home/dev/
+cp /root/.bashrc /home/dev/.bashrc && chown -R dev:dev /home/dev
+```
+
+- daemon systemd 单元加 `User=dev`,ExecStart 保留 `bash -lc`（加载 dev 的 rc 环境）
+- tmux 会话重建：`su - dev -c "tmux new-session -d -s 名字 -c 项目目录"`
+- 中继、Caddy、acme.sh 留在 root；claude/happy/tmux 全在 dev,爆炸半径锁在 dev 内
+- 非 root 后 `IS_SANDBOX=1` 可移除（root 检查只拦 root）
 
 ## 识别陌生账号蹭中继
 

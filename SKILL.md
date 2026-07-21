@@ -96,7 +96,7 @@ docker run -d --name caddy --restart unless-stopped -p 8443:8443 \
 
 ## 运维与排障
 
-见 [references/ops-troubleshooting.md](references/ops-troubleshooting.md)：维护命令、症状对照表（auth 失败/Waiting 卡住/loading 转圈/502）、识别陌生账号蹭中继、备份与升级。
+见 [references/ops-troubleshooting.md](references/ops-troubleshooting.md)：维护命令、症状对照表（auth 失败/Waiting 卡住/loading 转圈/502/daemon 会话闪退/root 权限检查/双版本冲突/npm 静默装坏/尸体会话）、普通用户运行 claude 的建议、识别陌生账号蹭中继、备份与升级。
 
 ## 已知限制
 
