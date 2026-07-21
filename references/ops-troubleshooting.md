@@ -61,6 +61,8 @@ Happy 默认 bypassPermissions 模式,叠加 root 等于"任意命令免确认 +
 ```bash
 useradd -m -s /bin/bash dev
 mv /root/.happy /root/.claude /root/.claude.json /root/claude-app /home/dev/
+# ⚠️ 中继数据必须留在 root（happy-server 以 root 运行,搬走会导致 SQLite readonly 全站 500）：
+mkdir -p /root/.happy && mv /home/dev/.happy/server-light /root/.happy/server-light
 cp /root/.bashrc /home/dev/.bashrc && chown -R dev:dev /home/dev
 ```
 
