@@ -38,13 +38,14 @@ cd /opt && git clone https://github.com/leeroybrun/happy-server-light.git
 cd happy-server-light
 git fetch origin pull/2/head
 git checkout --detach 8cfa49a74a28dbf436b3efd1728109367637c0a6
+git apply /path/to/happy-relay-deploy/assets/loopback-bind.patch
 chown -R happy:happy /opt/happy-server-light
 runuser -u happy -- env HOME=/home/happy yarn install --frozen-lockfile
 runuser -u happy -- env HOME=/home/happy node ./scripts/dev.mjs
 # 健康检查通过后 Ctrl-C；数据位于 /home/happy/.happy/server-light/
 ```
 
-该 commit 是 2026-08-07 核对的 [PR #2](https://github.com/leeroybrun/happy-server-light/pull/2) head，基于 fork commit `dadcf2b640e05884ebad70bc2e34de7aaee5fc3c`，已经包含 v3 补丁。升级时重新审阅，不要 `git pull` 后直接重启。
+该 commit 是 2026-08-07 核对的 [PR #2](https://github.com/leeroybrun/happy-server-light/pull/2) head，基于 fork commit `dadcf2b640e05884ebad70bc2e34de7aaee5fc3c`，已经包含 v3 补丁。固定 commit 的 API 原本硬编码监听 `0.0.0.0`；本仓 `loopback-bind.patch` 使 systemd 中的 `HAPPY_BIND_HOST=127.0.0.1` 真正生效。两份 patch 都必须在升级后重新审阅，不要 `git pull` 后直接重启。
 
 **只在无法取得上述 commit 时手工补丁**：
 
@@ -53,7 +54,7 @@ runuser -u happy -- env HOME=/home/happy node ./scripts/dev.mjs
 3. `sources/app/api/api.ts`：import 并在 `sessionRoutes(typed);` 后加 `v3SessionRoutes(typed);`
 4. `yarn build`（tsc 必须零错误）
 
-创建专用 `happy` 用户，把源码和数据交给它。复制 `assets/happy-server.service` 到 `/etc/systemd/system/`，按实际 node 路径调整，`systemctl enable --now happy-server`，验证 `curl http://127.0.0.1:3005/health`。模板默认 loopback、关闭 metrics，不能直接从 LAN/公网访问。
+创建专用 `happy` 用户，把源码和数据交给它。复制 `assets/happy-server.service` 到 `/etc/systemd/system/`，按实际 node 路径调整，`systemctl enable --now happy-server`。必须同时验证 `curl http://127.0.0.1:3005/health`、3005 只监听 `127.0.0.1`，并且 9090 没有 listener。模板依赖上面的 loopback patch；少任一步都不能声称是私有部署。
 
 ### 2. Tailscale Serve（推荐）
 

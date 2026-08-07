@@ -14,3 +14,7 @@ The `leeroybrun/happy-server-light` fork declares `"license": "MIT"` in its
 `package.json`, but did not expose a standalone repository license through
 GitHub's license API at verification time. This repository therefore links to
 and pins that source but does not redistribute the fork itself.
+
+`assets/loopback-bind.patch` is a repository-authored, minimal modification to
+the pinned fork's `sources/app/api/api.ts`. It replaces the hard-coded
+`0.0.0.0` API host with `HAPPY_BIND_HOST`, defaulting to `127.0.0.1`.

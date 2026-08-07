@@ -33,6 +33,7 @@ cp -r happy-relay-deploy ~/.config/agents/skills/   # 或 ~/.kimi/skills/、~/.c
 |---|---|
 | `SKILL.md` | 核心认知、手机本地/私有 tailnet/公网风险决策树、部署流程 |
 | `assets/v3SessionRoutes.ts` | v3 消息接口补丁的固定副本；优先直接使用已核对的 PR commit |
+| `assets/loopback-bind.patch` | 让固定上游 commit 真正读取 `HAPPY_BIND_HOST`，避免伪 loopback 配置 |
 | `assets/happy-server.service` | systemd 守护单元模板 |
 | `references/ops-troubleshooting.md` | 维护命令、故障症状对照表、陌生账号蹭中继的审计方法 |
 

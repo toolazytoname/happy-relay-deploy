@@ -34,6 +34,7 @@ The repository can also be placed under `~/.kimi/skills/` or `~/.claude/skills/`
 |---|---|
 | [`SKILL.md`](SKILL.md) | Local/remote decision tree, private-tailnet deployment, and public exposure risks |
 | `assets/v3SessionRoutes.ts` | Pinned copy of the v3 session-message compatibility patch |
+| `assets/loopback-bind.patch` | Makes the pinned upstream revision honor `HAPPY_BIND_HOST` instead of always binding all interfaces |
 | `assets/happy-server.service` | Hardened systemd service template |
 | `references/ops-troubleshooting.md` | Operations, backup, diagnosis, and unknown-account audit steps |
 | [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) | Patch provenance and pinned upstream commit |

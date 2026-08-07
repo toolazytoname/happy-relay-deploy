@@ -6,6 +6,7 @@
 systemctl restart happy-server              # 重启中继
 journalctl -u happy-server -f               # 实时日志
 curl https://<中继地址>/health              # 健康检查
+ss -ltnp | grep -E ':(3005|9090)[[:space:]]' # 3005 仅 127.0.0.1；9090 无输出
 ~/.acme.sh/acme.sh --list                   # 证书与续期时间
 caddy validate --config /etc/caddy/Caddyfile && systemctl reload caddy
 install -d -m 700 /var/backups/happy-server
@@ -46,6 +47,7 @@ export async function allocateSessionSeqBatch(sessionId: string, count: number, 
 | 手机显示连接成功,电脑一直 Waiting for authentication | 手机 App 的服务器地址没改成自建中继,批准请求发去了官方服务器。App 退出登录 → 登录页数据库图标填自建地址 → 重扫 |
 | 会话列表正常,点进去无限 loading | 服务端缺 v3 接口,日志可见大量 `GET /v3/sessions/.../messages` 404 → 打 v3 补丁（SKILL.md 第 1 节） |
 | Caddy 502 | 先确认 `curl http://127.0.0.1:3005/health`；再检查原生 Caddy 的 upstream 和 systemd 权限 |
+| 设置 `HAPPY_BIND_HOST` 后仍监听 `0.0.0.0:3005` | 固定上游原本忽略该变量；确认 `assets/loopback-bind.patch` 已应用并重建，再重启服务 |
 | TLS handshake internal error | 测试方法错误：SNI 必须是站点域名。正确测法 `curl https://域名:端口/health --resolve 域名:端口:127.0.0.1` |
 | Caddyfile 改了不生效 | 先 `caddy validate`，再 `systemctl reload caddy`；失败时保留旧配置 |
 | 语音不可用 | App 写死官方 ElevenLabs agent ID,自建服务不可用（slopus/happy#472),忽略 |
