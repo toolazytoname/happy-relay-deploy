@@ -7,9 +7,9 @@ systemctl restart happy-server              # 重启中继
 journalctl -u happy-server -f               # 实时日志
 curl https://<中继地址>/health              # 健康检查
 ~/.acme.sh/acme.sh --list                   # 证书与续期时间
-docker restart caddy && docker logs caddy --tail 50  # Caddy
+caddy validate --config /etc/caddy/Caddyfile && systemctl reload caddy
 tar -czf happy-backup-$(date +%F).tar.gz ~/.happy/server-light/   # 备份(最重要)
-cd /opt/happy-server-light && git pull && yarn install && systemctl restart happy-server  # 升级
+# 升级：先备份，在临时 checkout 审阅/构建/验收；固定新 SHA 后再切换并重启
 ```
 
 ## v3 补丁：seq.ts 需要追加的函数
@@ -43,9 +43,9 @@ export async function allocateSessionSeqBatch(sessionId: string, count: number, 
 | `happy auth` 报 "Failed to create authentication request" | 终端 `echo $HAPPY_SERVER_URL` 为空（旧窗口没加载新 rc 文件）→ 新开窗口或 `source`；或 CLI 走了官方服务器而本机无代理 |
 | 手机显示连接成功,电脑一直 Waiting for authentication | 手机 App 的服务器地址没改成自建中继,批准请求发去了官方服务器。App 退出登录 → 登录页数据库图标填自建地址 → 重扫 |
 | 会话列表正常,点进去无限 loading | 服务端缺 v3 接口,日志可见大量 `GET /v3/sessions/.../messages` 404 → 打 v3 补丁（SKILL.md 第 1 节） |
-| Caddy 502 | ufw 拦了 docker 网桥到宿主机的流量 → `ufw allow in on docker0` |
+| Caddy 502 | 先确认 `curl http://127.0.0.1:3005/health`；再检查原生 Caddy 的 upstream 和 systemd 权限 |
 | TLS handshake internal error | 测试方法错误：SNI 必须是站点域名。正确测法 `curl https://域名:端口/health --resolve 域名:端口:127.0.0.1` |
-| Caddyfile 改了不生效 | `admin off` 时 reload API 不可用,必须 `docker restart caddy` |
+| Caddyfile 改了不生效 | 先 `caddy validate`，再 `systemctl reload caddy`；失败时保留旧配置 |
 | 语音不可用 | App 写死官方 ElevenLabs agent ID,自建服务不可用（slopus/happy#472),忽略 |
 | 手机创建会话报 Process exited unexpectedly（daemon 路径） | 先查 `~/.happy/logs/*daemon*.log`。两大高频原因：① daemon 由 systemd 裸启动,不加载 `.bashrc`,拉起的 claude 无 API 凭证闪退 → `ExecStart=/bin/bash -lc "/opt/node/bin/happy daemon start"`；② root + bypassPermissions 被新版 claude 拒绝（`--dangerously-skip-permissions cannot be used with root`）→ 用普通用户跑（见下「普通用户运行」）,临时可 `export IS_SANDBOX=1` |
 | tmux 里 happy 反复刷 Continuing Claude session | 同上 root 检查,进程陷入崩溃重试循环。修复前启动的旧进程不会自动获得新环境变量,必须 `source ~/.bashrc` 后重启 happy |
@@ -76,13 +76,13 @@ cp /root/.bashrc /home/dev/.bashrc && chown -R dev:dev /home/dev
 
 ## 识别陌生账号蹭中继
 
-Happy 无密码注册,任何人知道地址都能用自己的设备注册。审计方法：
+Happy 无密码注册，任何人知道公开地址都能用自己的设备注册。因此默认使用 tailnet；下面的日志只用于审计，不能替代访问控制：
 
 ```bash
 journalctl -u happy-server | grep "auth request" | grep -o "publicKey hex: [A-F0-9]*" | sort | uniq -c | sort -rn
 ```
 
-对照自己各设备的公钥（首次配对时日志里出现过）。出现陌生 key 即说明有第三方在用,可 ufw/安全组封来源 IP,或换域名/端口。
+对照自己各设备的公钥（首次配对时日志里出现过）。出现陌生 key 即说明有第三方在用：先从公网撤下服务并轮换相关身份，再调查日志。换域名或端口不是修复。
 
 ## heredoc 陷阱
 
