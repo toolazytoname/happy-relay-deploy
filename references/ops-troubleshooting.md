@@ -8,7 +8,9 @@ journalctl -u happy-server -f               # 实时日志
 curl https://<中继地址>/health              # 健康检查
 ~/.acme.sh/acme.sh --list                   # 证书与续期时间
 caddy validate --config /etc/caddy/Caddyfile && systemctl reload caddy
-tar -czf happy-backup-$(date +%F).tar.gz ~/.happy/server-light/   # 备份(最重要)
+install -d -m 700 /var/backups/happy-server
+tar -czf /var/backups/happy-server/happy-$(date +%F).tar.gz \
+  -C /home/happy .happy/server-light/   # 备份服务端数据(最重要)
 # 升级：先备份，在临时 checkout 审阅/构建/验收；固定新 SHA 后再切换并重启
 ```
 
@@ -54,24 +56,25 @@ export async function allocateSessionSeqBatch(sessionId: string, count: number, 
 | 同是 claude 行为不一致（有的会话正常有的报错） | 双版本共存：native 安装（`~/.local/share/claude`）与 npm 全局并存,新旧版本行为不同（root 检查为新版新增）。`which claude` 确认解析路径,只保留一个 |
 | npm 全局安装后 claude 命令失效/空壳 | 安装中断留残目录,重装报 EEXIST/ENOTEMPTY 静默失败 → `rm -rf` 包目录后 `npm i -g --force` 重装,装完必须 `claude --version` 验证,别信 exit code |
 | 迁移用户后手机发消息无回复（无报错） | 每个项目目录首次启动 claude 会弹「信任此目录」确认框,会话卡在框上静默等待,tmux 窗格可见。每个窗格确认一次即永久记录（`~/.claude.json`）,之后不再出现 |
-| 迁移 `.happy` 后中继全站 500（readonly database） | 中继数据 `/root/.happy/server-light` 被一并搬走,SQLite 无法写日志文件。中继数据必须留在 root（见下） |
+| 迁移 `.happy` 后中继全站 500（readonly database） | 服务端数据目录的 owner 与 systemd `User=happy` 不一致。保持 `/home/happy/.happy/server-light` 由 `happy:happy` 拥有；不要和编码用户的客户端状态混搬 |
 | tmux 里启动的会话,手机发消息无回复（日志只有 RPC 探测） | 会话处于本地（local）模式,手机只读。启动加 `--happy-starting-mode remote`（如 `happy --model k3 --happy-starting-mode remote`）手机才能直接控制；终端随时按空格切回本地 |
 
-## 普通用户运行 claude（强烈建议）
+## 隔离 relay 与 Claude 编码用户（强烈建议）
 
-Happy 默认 bypassPermissions 模式,叠加 root 等于"任意命令免确认 + 最高权限"。建议建 `dev` 用户专跑 claude：
+Happy CLI 默认 bypassPermissions 模式，叠加 root 等于“任意命令免确认 + 最高权限”。relay 已由 systemd 的 `happy` 用户运行；另建 `dev` 用户专跑 Claude/Happy CLI，不要共用服务端数据：
 
 ```bash
 useradd -m -s /bin/bash dev
-mv /root/.happy /root/.claude /root/.claude.json /root/claude-app /home/dev/
-# ⚠️ 中继数据必须留在 root（happy-server 以 root 运行,搬走会导致 SQLite readonly 全站 500）：
-mkdir -p /root/.happy && mv /home/dev/.happy/server-light /root/.happy/server-light
-cp /root/.bashrc /home/dev/.bashrc && chown -R dev:dev /home/dev
+install -d -o dev -g dev -m 700 /home/dev/.happy
+# 只迁移 dev 自己的 CLI/Claude 状态；不要移动 /home/happy/.happy/server-light
+cp -a /root/.claude /root/.claude.json /root/claude-app /home/dev/ 2>/dev/null || true
+cp /root/.bashrc /home/dev/.bashrc
+chown -R dev:dev /home/dev
 ```
 
 - daemon systemd 单元加 `User=dev`,ExecStart 保留 `bash -lc`（加载 dev 的 rc 环境）
 - tmux 会话重建：`su - dev -c "tmux new-session -d -s 名字 -c 项目目录"`
-- 中继、Caddy、acme.sh 留在 root；claude/happy/tmux 全在 dev,爆炸半径锁在 dev 内
+- relay 数据与进程属于 `happy`；Caddy/acme 由各自服务账户或 root 管理；Claude/Happy CLI/tmux 属于 `dev`
 - 非 root 后 `IS_SANDBOX=1` 可移除（root 检查只拦 root）
 
 ## 识别陌生账号蹭中继

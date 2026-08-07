@@ -10,6 +10,7 @@ The local asset is byte-identical (SHA-256
 file in `leeroybrun/happy-server-light` PR #2 head commit
 `8cfa49a74a28dbf436b3efd1728109367637c0a6`, as verified on 2026-08-07.
 
-The `leeroybrun/happy-server-light` fork did not expose a repository license
-through GitHub's license API at verification time. This repository therefore
-links to and pins that source but does not redistribute the fork itself.
+The `leeroybrun/happy-server-light` fork declares `"license": "MIT"` in its
+`package.json`, but did not expose a standalone repository license through
+GitHub's license API at verification time. This repository therefore links to
+and pins that source but does not redistribute the fork itself.

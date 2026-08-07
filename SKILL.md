@@ -39,8 +39,8 @@ cd happy-server-light
 git fetch origin pull/2/head
 git checkout --detach 8cfa49a74a28dbf436b3efd1728109367637c0a6
 chown -R happy:happy /opt/happy-server-light
-sudo -u happy -H yarn install --frozen-lockfile
-sudo -u happy -H node ./scripts/dev.mjs
+runuser -u happy -- env HOME=/home/happy yarn install --frozen-lockfile
+runuser -u happy -- env HOME=/home/happy node ./scripts/dev.mjs
 # 健康检查通过后 Ctrl-C；数据位于 /home/happy/.happy/server-light/
 ```
 

@@ -1,5 +1,10 @@
 # happy-relay-deploy
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Network default](https://img.shields.io/badge/default-tailnet--only-blue.svg)](SECURITY.md)
+
+[简体中文](README.md) · [English](README.en.md)
+
 一个 Claude Code / Codex skill：在确有跨设备需求时自托管 Happy 中继（happy-server-light），让手机 App 远程控制工作机。
 
 手机本身运行 Happy server/daemon 的本地自洽方案**不需要本仓**，见
@@ -26,7 +31,7 @@ cp -r happy-relay-deploy ~/.config/agents/skills/   # 或 ~/.kimi/skills/、~/.c
 
 | 文件 | 说明 |
 |---|---|
-| `SKILL.md` | 核心认知、决策树（大陆机房/海外/纯内网三条路线）、部署流程 |
+| `SKILL.md` | 核心认知、手机本地/私有 tailnet/公网风险决策树、部署流程 |
 | `assets/v3SessionRoutes.ts` | v3 消息接口补丁的固定副本；优先直接使用已核对的 PR commit |
 | `assets/happy-server.service` | systemd 守护单元模板 |
 | `references/ops-troubleshooting.md` | 维护命令、故障症状对照表、陌生账号蹭中继的审计方法 |
