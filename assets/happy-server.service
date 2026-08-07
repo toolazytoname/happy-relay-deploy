@@ -1,16 +1,24 @@
 [Unit]
 Description=Happy Server Light (relay for Claude Code mobile)
-After=network.target
+Wants=network-online.target
+After=network-online.target
 
 [Service]
 Type=simple
+User=happy
+Group=happy
 WorkingDirectory=/opt/happy-server-light
 Environment=PATH=/opt/node/bin:/usr/local/bin:/usr/bin:/bin
+Environment=HOME=/home/happy
 Environment=NODE_ENV=production
 Environment=PORT=3005
+Environment=HAPPY_BIND_HOST=127.0.0.1
+Environment=METRICS_ENABLED=false
 ExecStart=/opt/node/bin/node /opt/happy-server-light/node_modules/.bin/tsx /opt/happy-server-light/sources/main.ts
 Restart=always
 RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
 
 [Install]
 WantedBy=multi-user.target

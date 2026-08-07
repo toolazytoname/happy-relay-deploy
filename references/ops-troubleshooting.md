@@ -6,10 +6,13 @@
 systemctl restart happy-server              # 重启中继
 journalctl -u happy-server -f               # 实时日志
 curl https://<中继地址>/health              # 健康检查
+ss -ltnp | grep -E ':(3005|9090)[[:space:]]' # 3005 仅 127.0.0.1；9090 无输出
 ~/.acme.sh/acme.sh --list                   # 证书与续期时间
-docker restart caddy && docker logs caddy --tail 50  # Caddy
-tar -czf happy-backup-$(date +%F).tar.gz ~/.happy/server-light/   # 备份(最重要)
-cd /opt/happy-server-light && git pull && yarn install && systemctl restart happy-server  # 升级
+caddy validate --config /etc/caddy/Caddyfile && systemctl reload caddy
+install -d -m 700 /var/backups/happy-server
+tar -czf /var/backups/happy-server/happy-$(date +%F).tar.gz \
+  -C /home/happy .happy/server-light/   # 备份服务端数据(最重要)
+# 升级：先备份，在临时 checkout 审阅/构建/验收；固定新 SHA 后再切换并重启
 ```
 
 ## v3 补丁：seq.ts 需要追加的函数
@@ -43,9 +46,10 @@ export async function allocateSessionSeqBatch(sessionId: string, count: number, 
 | `happy auth` 报 "Failed to create authentication request" | 终端 `echo $HAPPY_SERVER_URL` 为空（旧窗口没加载新 rc 文件）→ 新开窗口或 `source`；或 CLI 走了官方服务器而本机无代理 |
 | 手机显示连接成功,电脑一直 Waiting for authentication | 手机 App 的服务器地址没改成自建中继,批准请求发去了官方服务器。App 退出登录 → 登录页数据库图标填自建地址 → 重扫 |
 | 会话列表正常,点进去无限 loading | 服务端缺 v3 接口,日志可见大量 `GET /v3/sessions/.../messages` 404 → 打 v3 补丁（SKILL.md 第 1 节） |
-| Caddy 502 | ufw 拦了 docker 网桥到宿主机的流量 → `ufw allow in on docker0` |
+| Caddy 502 | 先确认 `curl http://127.0.0.1:3005/health`；再检查原生 Caddy 的 upstream 和 systemd 权限 |
+| 设置 `HAPPY_BIND_HOST` 后仍监听 `0.0.0.0:3005` | 固定上游原本忽略该变量；确认 `assets/loopback-bind.patch` 已应用并重建，再重启服务 |
 | TLS handshake internal error | 测试方法错误：SNI 必须是站点域名。正确测法 `curl https://域名:端口/health --resolve 域名:端口:127.0.0.1` |
-| Caddyfile 改了不生效 | `admin off` 时 reload API 不可用,必须 `docker restart caddy` |
+| Caddyfile 改了不生效 | 先 `caddy validate`，再 `systemctl reload caddy`；失败时保留旧配置 |
 | 语音不可用 | App 写死官方 ElevenLabs agent ID,自建服务不可用（slopus/happy#472),忽略 |
 | 手机创建会话报 Process exited unexpectedly（daemon 路径） | 先查 `~/.happy/logs/*daemon*.log`。两大高频原因：① daemon 由 systemd 裸启动,不加载 `.bashrc`,拉起的 claude 无 API 凭证闪退 → `ExecStart=/bin/bash -lc "/opt/node/bin/happy daemon start"`；② root + bypassPermissions 被新版 claude 拒绝（`--dangerously-skip-permissions cannot be used with root`）→ 用普通用户跑（见下「普通用户运行」）,临时可 `export IS_SANDBOX=1` |
 | tmux 里 happy 反复刷 Continuing Claude session | 同上 root 检查,进程陷入崩溃重试循环。修复前启动的旧进程不会自动获得新环境变量,必须 `source ~/.bashrc` 后重启 happy |
@@ -54,35 +58,36 @@ export async function allocateSessionSeqBatch(sessionId: string, count: number, 
 | 同是 claude 行为不一致（有的会话正常有的报错） | 双版本共存：native 安装（`~/.local/share/claude`）与 npm 全局并存,新旧版本行为不同（root 检查为新版新增）。`which claude` 确认解析路径,只保留一个 |
 | npm 全局安装后 claude 命令失效/空壳 | 安装中断留残目录,重装报 EEXIST/ENOTEMPTY 静默失败 → `rm -rf` 包目录后 `npm i -g --force` 重装,装完必须 `claude --version` 验证,别信 exit code |
 | 迁移用户后手机发消息无回复（无报错） | 每个项目目录首次启动 claude 会弹「信任此目录」确认框,会话卡在框上静默等待,tmux 窗格可见。每个窗格确认一次即永久记录（`~/.claude.json`）,之后不再出现 |
-| 迁移 `.happy` 后中继全站 500（readonly database） | 中继数据 `/root/.happy/server-light` 被一并搬走,SQLite 无法写日志文件。中继数据必须留在 root（见下） |
+| 迁移 `.happy` 后中继全站 500（readonly database） | 服务端数据目录的 owner 与 systemd `User=happy` 不一致。保持 `/home/happy/.happy/server-light` 由 `happy:happy` 拥有；不要和编码用户的客户端状态混搬 |
 | tmux 里启动的会话,手机发消息无回复（日志只有 RPC 探测） | 会话处于本地（local）模式,手机只读。启动加 `--happy-starting-mode remote`（如 `happy --model k3 --happy-starting-mode remote`）手机才能直接控制；终端随时按空格切回本地 |
 
-## 普通用户运行 claude（强烈建议）
+## 隔离 relay 与 Claude 编码用户（强烈建议）
 
-Happy 默认 bypassPermissions 模式,叠加 root 等于"任意命令免确认 + 最高权限"。建议建 `dev` 用户专跑 claude：
+Happy CLI 默认 bypassPermissions 模式，叠加 root 等于“任意命令免确认 + 最高权限”。relay 已由 systemd 的 `happy` 用户运行；另建 `dev` 用户专跑 Claude/Happy CLI，不要共用服务端数据：
 
 ```bash
 useradd -m -s /bin/bash dev
-mv /root/.happy /root/.claude /root/.claude.json /root/claude-app /home/dev/
-# ⚠️ 中继数据必须留在 root（happy-server 以 root 运行,搬走会导致 SQLite readonly 全站 500）：
-mkdir -p /root/.happy && mv /home/dev/.happy/server-light /root/.happy/server-light
-cp /root/.bashrc /home/dev/.bashrc && chown -R dev:dev /home/dev
+install -d -o dev -g dev -m 700 /home/dev/.happy
+# 只迁移 dev 自己的 CLI/Claude 状态；不要移动 /home/happy/.happy/server-light
+cp -a /root/.claude /root/.claude.json /root/claude-app /home/dev/ 2>/dev/null || true
+cp /root/.bashrc /home/dev/.bashrc
+chown -R dev:dev /home/dev
 ```
 
 - daemon systemd 单元加 `User=dev`,ExecStart 保留 `bash -lc`（加载 dev 的 rc 环境）
 - tmux 会话重建：`su - dev -c "tmux new-session -d -s 名字 -c 项目目录"`
-- 中继、Caddy、acme.sh 留在 root；claude/happy/tmux 全在 dev,爆炸半径锁在 dev 内
+- relay 数据与进程属于 `happy`；Caddy/acme 由各自服务账户或 root 管理；Claude/Happy CLI/tmux 属于 `dev`
 - 非 root 后 `IS_SANDBOX=1` 可移除（root 检查只拦 root）
 
 ## 识别陌生账号蹭中继
 
-Happy 无密码注册,任何人知道地址都能用自己的设备注册。审计方法：
+Happy 无密码注册，任何人知道公开地址都能用自己的设备注册。因此默认使用 tailnet；下面的日志只用于审计，不能替代访问控制：
 
 ```bash
 journalctl -u happy-server | grep "auth request" | grep -o "publicKey hex: [A-F0-9]*" | sort | uniq -c | sort -rn
 ```
 
-对照自己各设备的公钥（首次配对时日志里出现过）。出现陌生 key 即说明有第三方在用,可 ufw/安全组封来源 IP,或换域名/端口。
+对照自己各设备的公钥（首次配对时日志里出现过）。出现陌生 key 即说明有第三方在用：先从公网撤下服务并轮换相关身份，再调查日志。换域名或端口不是修复。
 
 ## heredoc 陷阱
 
