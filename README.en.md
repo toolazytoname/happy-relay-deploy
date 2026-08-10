@@ -5,6 +5,8 @@
 
 [简体中文](README.md) · [English](README.en.md)
 
+![happy-relay-deploy at a glance: the phone-local loop and the optional private remote relay](docs/assets/happy-relay-deploy-overview.png)
+
 A Claude Code and Codex skill for self-hosting `happy-server-light` when a phone must control an AI coding session on another machine.
 
 If Happy server and its daemon both run locally on the phone, you do **not** need this repository. Use [`android-ai-stack`](https://github.com/toolazytoname/android-ai-stack) for that local-first topology. This repository owns only the optional remote-relay boundary.
