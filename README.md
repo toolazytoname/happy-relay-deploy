@@ -5,6 +5,8 @@
 
 [简体中文](README.md) · [English](README.en.md)
 
+![happy-relay-deploy 一图总览：手机本地闭环与可选的私有远端中继](docs/assets/happy-relay-deploy-overview.png)
+
 一个 Claude Code / Codex skill：在确有跨设备需求时自托管 Happy 中继（happy-server-light），让手机 App 远程控制工作机。
 
 手机本身运行 Happy server/daemon 的本地自洽方案**不需要本仓**，见
